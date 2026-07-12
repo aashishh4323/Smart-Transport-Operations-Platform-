@@ -1,10 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, getClientIp } from "@/lib/api-helpers";
 import { LoginFormSchema } from "@/lib/definitions";
 import bcrypt from "bcryptjs";
 import { createSession } from "@/lib/session";
+import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 export const POST = withErrorHandler(async (req: Request) => {
+  const ip = getClientIp(req);
+  if (!(await checkRateLimit(ip, "login"))) {
+    return jsonError("Too many login attempts. Please try again later.", 429);
+  }
+
   const body = await req.json();
 
   // 1. Validate form fields
@@ -33,6 +39,8 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   // 4. Create user session
   await createSession(user.id, user.role);
+
+  await resetRateLimit(ip, "login");
 
   return jsonSuccess({
     id: user.id,
