@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, ApiError } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
 
@@ -24,7 +24,7 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
 
       // Only Dispatched trips can be cancelled
       if (trip.status !== TripStatus.Dispatched) {
-        throw new Error(
+        throw new ApiError(409,
           `Cannot cancel trip: current status is ${trip.status} (expected Dispatched)`
         );
       }

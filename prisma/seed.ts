@@ -1,17 +1,19 @@
 import { Role } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
+import bcrypt from "bcryptjs";
 
 async function main() {
   console.log("Seeding database...");
 
   // Create a FleetManager user
+  const adminPassword = await bcrypt.hash("admin123", 10);
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@transitops.local" },
     update: {},
     create: {
       email: "admin@transitops.local",
       name: "Admin Fleet Manager",
-      passwordHash: "dummyhash123",
+      passwordHash: adminPassword,
       role: Role.FleetManager,
     },
   });

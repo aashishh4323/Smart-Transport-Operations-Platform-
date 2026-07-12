@@ -4,6 +4,20 @@ import { withRole } from "@/lib/rbac";
 import { TripStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+function escapeCsv(val: string | number): string {
+  if (val === null || val === undefined) return "";
+  let str = String(val);
+  // Protect against CSV injection
+  if (/^[=+\-@]/.test(str)) {
+    str = "'" + str;
+  }
+  // Quote if it contains special characters
+  if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 /**
  * GET /api/reports/export?type=fuel|costs|roi
  *
@@ -64,7 +78,7 @@ export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "Fin
         const efficiency = entry.totalFuel > 0
           ? (entry.totalDistance / entry.totalFuel).toFixed(2)
           : "0";
-        csvContent += `${entry.reg},${entry.model},${entry.type},${entry.totalDistance.toFixed(2)},${entry.totalFuel.toFixed(2)},${efficiency},${entry.tripCount}\n`;
+        csvContent += `${escapeCsv(entry.reg)},${escapeCsv(entry.model)},${escapeCsv(entry.type)},${entry.totalDistance.toFixed(2)},${entry.totalFuel.toFixed(2)},${efficiency},${entry.tripCount}\n`;
       }
       break;
     }
@@ -92,7 +106,7 @@ export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "Fin
       for (const v of vehicles) {
         const fuel = fuelMap.get(v.id) || 0;
         const maint = maintMap.get(v.id) || 0;
-        csvContent += `${v.registrationNumber},${v.model},${v.type},${fuel.toFixed(2)},${maint.toFixed(2)},${(fuel + maint).toFixed(2)}\n`;
+        csvContent += `${escapeCsv(v.registrationNumber)},${escapeCsv(v.model)},${escapeCsv(v.type)},${fuel.toFixed(2)},${maint.toFixed(2)},${(fuel + maint).toFixed(2)}\n`;
       }
       break;
     }
@@ -134,7 +148,7 @@ export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "Fin
         const roi = v.acquisitionCost > 0
           ? (((revenue - opCost) / v.acquisitionCost) * 100).toFixed(2)
           : "0";
-        csvContent += `${v.registrationNumber},${v.model},${v.type},${v.acquisitionCost.toFixed(2)},${trips.count},${revenue.toFixed(2)},${opCost.toFixed(2)},${roi}\n`;
+        csvContent += `${escapeCsv(v.registrationNumber)},${escapeCsv(v.model)},${escapeCsv(v.type)},${v.acquisitionCost.toFixed(2)},${trips.count},${revenue.toFixed(2)},${opCost.toFixed(2)},${roi}\n`;
       }
       break;
     }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, parseValidFloat, ApiError } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
 
@@ -26,6 +26,9 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
         "Missing required fields: finalOdometer, fuelConsumed"
       );
     }
+    
+    const odometerValue = parseValidFloat(finalOdometer);
+    const fuelValue = parseValidFloat(fuelConsumed);
 
     const result = await prisma.$transaction(async (tx) => {
       const trip = await tx.trip.findUniqueOrThrow({
@@ -35,15 +38,14 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
 
       // Only Dispatched trips can be completed
       if (trip.status !== TripStatus.Dispatched) {
-        throw new Error(
+        throw new ApiError(409,
           `Cannot complete trip: current status is ${trip.status} (expected Dispatched)`
         );
       }
 
       // Validate odometer reading
-      const odometerValue = parseFloat(finalOdometer);
       if (odometerValue < trip.vehicle.odometer) {
-        throw new Error(
+        throw new ApiError(400,
           `Final odometer (${odometerValue}) cannot be less than current odometer (${trip.vehicle.odometer})`
         );
       }
@@ -54,7 +56,7 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
         data: {
           status: TripStatus.Completed,
           finalOdometer: odometerValue,
-          fuelConsumed: parseFloat(fuelConsumed),
+          fuelConsumed: fuelValue,
         },
       });
 
