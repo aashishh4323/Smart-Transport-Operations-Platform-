@@ -5,58 +5,64 @@ export type UserRole =
   | "SafetyOfficer"
   | "FinancialAnalyst";
 
-export type VehicleStatus =
-  | "Available"
-  | "OnTrip"
-  | "InShop"
-  | "Retired";
-
-export type DriverStatus =
-  | "Available"
-  | "OnTrip"
-  | "OffDuty"
-  | "Suspended";
-
-export type TripStatus =
-  | "Draft"
-  | "Dispatched"
-  | "Completed"
-  | "Cancelled";
+export type VehicleStatus = "Available" | "OnTrip" | "InShop" | "Retired";
+export type DriverStatus = "Available" | "OnTrip" | "OffDuty" | "Suspended";
+export type TripStatus = "Draft" | "Dispatched" | "Completed" | "Cancelled";
+export type MaintenanceStatus = "Open" | "Closed";
+export type VehicleType = "Van" | "Bus" | "Minibus" | "Truck" | "Coach";
+export type DriverCategory = "Class A" | "Class B" | "Class C";
+export type ExpenseType = "Fuel" | "Toll" | "Other";
+export type ModuleKey =
+  | "dashboard"
+  | "fleet"
+  | "drivers"
+  | "trips"
+  | "maintenance"
+  | "expenses"
+  | "analytics"
+  | "settings";
 
 export interface Vehicle {
   id: string;
   registrationNumber: string;
   model: string;
-  type: string;
-  maxLoad: number;
-  odometer: number;
+  type: VehicleType;
+  maxLoadKg: number;
+  odometerKm: number;
   acquisitionCost: number;
   status: VehicleStatus;
+  region: string;
+  lastServiceDate: string;
+  notes?: string;
 }
 
 export interface Driver {
   id: string;
   name: string;
   licenseNumber: string;
-  licenseCategory: "LMV" | "HMV";
+  licenseCategory: DriverCategory;
   licenseExpiry: string;
-  contactNumber: string;
+  contact: string;
   safetyScore: number;
   status: DriverStatus;
+  region: string;
 }
 
 export interface Trip {
   id: string;
-  tripCode: string;
+  code: string;
   source: string;
   destination: string;
-  cargoWeight: number;
-  plannedDistance: number;
+  vehicleId: string;
+  driverId: string;
+  cargoWeightKg: number;
+  plannedDistanceKm: number;
   status: TripStatus;
-  vehicleId?: string;
-  driverId?: string;
-  finalOdometer?: number;
-  fuelConsumed?: number;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  finalOdometerKm?: number;
+  fuelConsumedL?: number;
 }
 
 export interface MaintenanceLog {
@@ -66,14 +72,24 @@ export interface MaintenanceLog {
   cost: number;
   startDate: string;
   endDate?: string;
-  status: "Open" | "Closed";
+  status: MaintenanceStatus;
 }
 
-export interface ExpenseLog {
+export interface FuelExpenseLog {
   id: string;
   vehicleId: string;
-  liters?: number;
-  cost: number;
+  tripId?: string;
+  type: ExpenseType;
+  amount: number;
   date: string;
-  type: "Fuel" | "Toll" | "Other";
+  liters?: number;
+  details?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  title: string;
+  detail: string;
+  time: string;
+  level: "info" | "success" | "warning" | "danger";
 }
