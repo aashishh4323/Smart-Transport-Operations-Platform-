@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { TripStatus } from "@prisma/client";
 
 /**
@@ -15,7 +16,7 @@ import { TripStatus } from "@prisma/client";
  *
  * Operational Cost = Fuel + Maintenance costs
  */
-export const GET = withErrorHandler(async () => {
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async () => {
   const vehicles = await prisma.vehicle.findMany({
     select: {
       id: true,
@@ -102,4 +103,4 @@ export const GET = withErrorHandler(async () => {
   roiData.sort((a, b) => b.roiPercent - a.roiPercent);
 
   return jsonSuccess(roiData);
-});
+}));

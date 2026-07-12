@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
-import { setVehicleRetired } from "@/lib/services/vehicleStatusService";
+import { withRole } from "@/lib/rbac";
+import { assertVehicleTransition } from "@/lib/services/vehicleStatusService";
+import { VehicleStatus } from "@prisma/client";
 
 /**
  * GET /api/vehicles/:id
  * Get vehicle details including related trip and maintenance counts.
  */
-export const GET = withErrorHandler(
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -25,13 +27,13 @@ export const GET = withErrorHandler(
 
     return jsonSuccess(vehicle);
   }
-);
+));
 
 /**
  * PUT /api/vehicles/:id
  * Update vehicle details. Validates unique registration if changed.
  */
-export const PUT = withErrorHandler(
+export const PUT = withRole(["FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
     const body = await req.json();
@@ -68,19 +70,31 @@ export const PUT = withErrorHandler(
 
     return jsonSuccess(vehicle);
   }
-);
+));
 
 /**
  * DELETE /api/vehicles/:id
  * Soft-delete: sets vehicle status to Retired.
  * Cannot retire a vehicle that is currently OnTrip.
  */
-export const DELETE = withErrorHandler(
+export const DELETE = withRole(["FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
     try {
-      const vehicle = await setVehicleRetired(id);
+      const vehicle = await prisma.$transaction(async (tx) => {
+        const v = await tx.vehicle.findUniqueOrThrow({
+          where: { id },
+          select: { status: true },
+        });
+
+        assertVehicleTransition(v.status, VehicleStatus.Retired);
+
+        return tx.vehicle.update({
+          where: { id },
+          data: { status: VehicleStatus.Retired },
+        });
+      });
       return jsonSuccess(vehicle);
     } catch (error: unknown) {
       const message =
@@ -88,4 +102,4 @@ export const DELETE = withErrorHandler(
       return jsonError(message, 422);
     }
   }
-);
+));

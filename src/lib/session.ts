@@ -4,6 +4,9 @@ import { cookies } from "next/headers";
 import { SessionPayload } from "./definitions";
 
 const secretKey = process.env.SESSION_SECRET;
+if (!secretKey) {
+  throw new Error("Missing SESSION_SECRET environment variable");
+}
 const encodedKey = new TextEncoder().encode(secretKey);
 
 export async function encrypt(payload: SessionPayload) {
@@ -19,6 +22,10 @@ export async function decrypt(session: string | undefined = "") {
     const { payload } = await jwtVerify(session, encodedKey, {
       algorithms: ["HS256"],
     });
+    // expiresAt is serialized as string/number in JWT, map back to Date
+    if (payload.expiresAt) {
+      payload.expiresAt = new Date(payload.expiresAt as string | number);
+    }
     return payload as SessionPayload;
   } catch (error) {
     return null;
@@ -50,7 +57,11 @@ export async function updateSession() {
   }
 
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  cookieStore.set("session", session, {
+  
+  // Re-encrypt to update internal JWT expiration
+  const newSessionToken = await encrypt({ ...payload, expiresAt: expires });
+
+  cookieStore.set("session", newSessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     expires: expires,

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 
 /**
  * GET /api/reports/operational-costs
@@ -11,7 +12,7 @@ import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
  *
  * Also provides monthly breakdown.
  */
-export const GET = withErrorHandler(async () => {
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async () => {
   // Get all vehicles
   const vehicles = await prisma.vehicle.findMany({
     select: {
@@ -111,4 +112,4 @@ export const GET = withErrorHandler(async () => {
     perVehicle: costData,
     monthlyBreakdown,
   });
-});
+}));

@@ -1,23 +1,13 @@
 import { verifySession } from "./dal";
 import { jsonError } from "./api-helpers";
-import { Role as PrismaRole } from "@prisma/client";
-
-// Define role aliases for clarity based on requirements
-export type Role = "FleetManager" | "Dispatcher" | "SafetyOfficer" | "FinancialAnalyst";
-
-/**
- * Maps PrismaRole enum to the internal Role type used here.
- */
-function mapPrismaRoleToRole(prismaRole: PrismaRole): Role {
-  return prismaRole as unknown as Role;
-}
+import { Role } from "@prisma/client";
 
 /**
  * Wraps an API route handler to ensure the user is authenticated.
  * Injects session context into the handler parameters.
  */
 export function withAuth(
-  handler: (req: Request, ctx: { params?: Promise<Record<string, string>>; session: { userId: string; role: string } }) => Promise<Response> | Response
+  handler: (req: Request, ctx: any) => Promise<Response> | Response
 ) {
   return async (req: Request, ctx?: { params?: Promise<Record<string, string>> }) => {
     const session = await verifySession();
@@ -35,8 +25,8 @@ export function withAuth(
  * has one of the allowed roles.
  */
 export function withRole(
-  allowedRoles: Role[],
-  handler: (req: Request, ctx: { params?: Promise<Record<string, string>>; session: { userId: string; role: string } }) => Promise<Response> | Response
+  allowedRoles: (Role | string)[],
+  handler: (req: Request, ctx: any) => Promise<Response> | Response
 ) {
   return async (req: Request, ctx?: { params?: Promise<Record<string, string>> }) => {
     const session = await verifySession();

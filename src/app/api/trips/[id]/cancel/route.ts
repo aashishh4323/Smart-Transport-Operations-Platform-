@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
 
 /**
@@ -12,7 +13,7 @@ import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
  *
  * Can only cancel from Dispatched status.
  */
-export const POST = withErrorHandler(
+export const POST = withRole(["Dispatcher"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -51,4 +52,4 @@ export const POST = withErrorHandler(
 
     return jsonSuccess(result);
   }
-);
+));

@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { ExpenseType } from "@prisma/client";
 
 /**
  * GET /api/fuel-expenses/:id
  * Get expense log details.
  */
-export const GET = withErrorHandler(
+export const GET = withRole(["FinancialAnalyst", "FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -17,13 +18,13 @@ export const GET = withErrorHandler(
 
     return jsonSuccess(log);
   }
-);
+));
 
 /**
  * PUT /api/fuel-expenses/:id
  * Update an expense log.
  */
-export const PUT = withErrorHandler(
+export const PUT = withRole(["FinancialAnalyst"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
     const body = await req.json();
@@ -54,13 +55,13 @@ export const PUT = withErrorHandler(
 
     return jsonSuccess(log);
   }
-);
+));
 
 /**
  * DELETE /api/fuel-expenses/:id
  * Delete an expense log (hard delete).
  */
-export const DELETE = withErrorHandler(
+export const DELETE = withRole(["FinancialAnalyst"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -68,4 +69,4 @@ export const DELETE = withErrorHandler(
 
     return jsonSuccess({ deleted: true });
   }
-);
+));

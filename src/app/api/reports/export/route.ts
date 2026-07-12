@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { TripStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -8,7 +9,7 @@ import { NextResponse } from "next/server";
  *
  * Exports report data as CSV.
  */
-export const GET = withErrorHandler(async (req: Request) => {
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const reportType = searchParams.get("type");
 
@@ -146,4 +147,4 @@ export const GET = withErrorHandler(async (req: Request) => {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
-});
+}));

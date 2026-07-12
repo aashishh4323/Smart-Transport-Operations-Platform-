@@ -34,10 +34,12 @@ export function withErrorHandler<T = any>(
       const message =
         error instanceof Error ? error.message : "Internal server error";
 
-      // Prisma not-found errors
+      // Prisma not-found errors (P2025 is standard for findUniqueOrThrow)
       if (
-        error instanceof Error &&
-        error.name === "NotFoundError"
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "P2025"
       ) {
         return jsonError("Resource not found", 404);
       }
