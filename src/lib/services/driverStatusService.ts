@@ -1,4 +1,5 @@
 import { DriverStatus } from "@prisma/client";
+import { ApiError } from "@/lib/api-helpers";
 
 /**
  * Shared Driver Status Service
@@ -23,7 +24,7 @@ export function assertDriverTransition(
 ): void {
   const allowed = VALID_TRANSITIONS[current];
   if (!allowed.includes(target)) {
-    throw new Error(
+    throw new ApiError(422,
       `Invalid driver status transition: ${current} → ${target}. ` +
         `Allowed transitions from ${current}: [${allowed.join(", ")}]`
     );

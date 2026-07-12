@@ -14,6 +14,13 @@ export function jsonError(message: string, status = 400, details?: any) {
   return NextResponse.json({ success: false, error: message, details }, { status });
 }
 
+export class ApiError extends Error {
+  constructor(public statusCode: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 /**
  * Wraps an async route handler with try/catch
  * and returns standardized error responses.
@@ -31,6 +38,10 @@ export function withErrorHandler<T = any>(
     try {
       return await handler(req, context);
     } catch (error: unknown) {
+      if (error instanceof ApiError) {
+        return jsonError(error.message, error.statusCode);
+      }
+
       const message =
         error instanceof Error ? error.message : "Internal server error";
 
@@ -39,7 +50,7 @@ export function withErrorHandler<T = any>(
         error &&
         typeof error === "object" &&
         "code" in error &&
-        error.code === "P2025"
+        (error as any).code === "P2025"
       ) {
         return jsonError("Resource not found", 404);
       }
@@ -57,4 +68,20 @@ export function withErrorHandler<T = any>(
       return jsonError(message, 500);
     }
   };
+}
+
+export function parseValidFloat(val: any): number {
+  const parsed = parseFloat(val);
+  if (Number.isNaN(parsed)) {
+    throw new ApiError(400, `Invalid number value: ${val}`);
+  }
+  return parsed;
+}
+
+export function parseValidDate(val: any): Date {
+  const parsed = new Date(val);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ApiError(400, `Invalid date value: ${val}`);
+  }
+  return parsed;
 }

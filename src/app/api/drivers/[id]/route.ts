@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, parseValidFloat, parseValidDate } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { assertDriverTransition } from "@/lib/services/driverStatusService";
 import { DriverStatus } from "@prisma/client";
@@ -61,10 +61,10 @@ export const PUT = withRole(["Dispatcher", "SafetyOfficer"], withErrorHandler(
     if (licenseCategory !== undefined)
       updateData.licenseCategory = licenseCategory;
     if (licenseExpiry !== undefined)
-      updateData.licenseExpiry = new Date(licenseExpiry);
+      updateData.licenseExpiry = parseValidDate(licenseExpiry);
     if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
     if (safetyScore !== undefined)
-      updateData.safetyScore = parseFloat(safetyScore);
+      updateData.safetyScore = parseValidFloat(safetyScore);
 
     const driver = await prisma.driver.update({
       where: { id },
@@ -84,25 +84,20 @@ export const DELETE = withRole(["Dispatcher", "SafetyOfficer"], withErrorHandler
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
-    try {
-      const driver = await prisma.$transaction(async (tx) => {
-        const d = await tx.driver.findUniqueOrThrow({
-          where: { id },
-          select: { status: true },
-        });
-
-        assertDriverTransition(d.status, DriverStatus.Suspended);
-
-        return tx.driver.update({
-          where: { id },
-          data: { status: DriverStatus.Suspended },
-        });
+    const driver = await prisma.$transaction(async (tx) => {
+      const d = await tx.driver.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
       });
-      return jsonSuccess(driver);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Cannot suspend driver";
-      return jsonError(message, 422);
-    }
+
+      assertDriverTransition(d.status, DriverStatus.Suspended);
+
+      return tx.driver.update({
+        where: { id },
+        data: { status: DriverStatus.Suspended },
+      });
+    });
+    
+    return jsonSuccess(driver);
   }
 ));

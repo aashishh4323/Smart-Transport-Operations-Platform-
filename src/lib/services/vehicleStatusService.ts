@@ -1,4 +1,5 @@
 import { VehicleStatus } from "@prisma/client";
+import { ApiError } from "@/lib/api-helpers";
 
 /**
  * Shared Vehicle Status Service
@@ -23,7 +24,7 @@ export function assertVehicleTransition(
 ): void {
   const allowed = VALID_TRANSITIONS[current];
   if (!allowed.includes(target)) {
-    throw new Error(
+    throw new ApiError(422,
       `Invalid vehicle status transition: ${current} → ${target}. ` +
         `Allowed transitions from ${current}: [${allowed.join(", ")}]`
     );

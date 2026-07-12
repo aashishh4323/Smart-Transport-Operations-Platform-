@@ -36,13 +36,13 @@ CREATE OR REPLACE VIEW "vw_fuel_efficiency" AS
 SELECT 
   v."id" AS vehicle_id,
   v."registrationNumber",
-  COALESCE(sum(t."plannedDistance"), 0) AS total_distance_km,
-  COALESCE(sum(f."liters"), 0) AS total_fuel_liters,
-  round((COALESCE(sum(t."plannedDistance"), 0) / NULLIF(COALESCE(sum(f."liters"), 0), 0))::numeric, 2) AS km_per_liter
-FROM "Vehicle" v
-LEFT JOIN "Trip" t ON t."vehicleId" = v."id" AND t."status" = 'Completed'
-LEFT JOIN "FuelExpenseLog" f ON f."vehicleId" = v."id" AND f."type" = 'Fuel'
-GROUP BY v."id", v."registrationNumber";
+  COALESCE((SELECT sum("plannedDistance") FROM "Trip" WHERE "vehicleId" = v."id" AND "status" = 'Completed'), 0) AS total_distance_km,
+  COALESCE((SELECT sum("liters") FROM "FuelExpenseLog" WHERE "vehicleId" = v."id" AND "type" = 'Fuel'), 0) AS total_fuel_liters,
+  round((
+    COALESCE((SELECT sum("plannedDistance") FROM "Trip" WHERE "vehicleId" = v."id" AND "status" = 'Completed'), 0) / 
+    NULLIF(COALESCE((SELECT sum("liters") FROM "FuelExpenseLog" WHERE "vehicleId" = v."id" AND "type" = 'Fuel'), 0), 0)
+  )::numeric, 2) AS km_per_liter
+FROM "Vehicle" v;
 
 -- 5. Operational Cost
 -- Combines MaintenanceLogs and FuelExpenseLogs
