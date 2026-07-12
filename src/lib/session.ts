@@ -2,6 +2,7 @@ import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { SessionPayload } from "./definitions";
+import { prisma } from "@/lib/prisma";
 
 const secretKey = process.env.SESSION_SECRET;
 if (!secretKey) {
@@ -9,11 +10,11 @@ if (!secretKey) {
 }
 const encodedKey = new TextEncoder().encode(secretKey);
 
-export async function encrypt(payload: SessionPayload) {
+export async function encrypt(payload: { sessionId: string; expiresAt?: Date }) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime("2h")
     .sign(encodedKey);
 }
 
@@ -22,55 +23,82 @@ export async function decrypt(session: string | undefined = "") {
     const { payload } = await jwtVerify(session, encodedKey, {
       algorithms: ["HS256"],
     });
-    // expiresAt is serialized as string/number in JWT, map back to Date
-    if (payload.expiresAt) {
-      payload.expiresAt = new Date(payload.expiresAt as string | number);
-    }
-    return payload as SessionPayload;
+    return payload as { sessionId: string; expiresAt?: Date };
   } catch (error) {
     return null;
   }
 }
 
 export async function createSession(userId: string, role: string) {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await encrypt({ userId, role, expiresAt });
+  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+  
+  // Create DB Session
+  const sessionDb = await prisma.session.create({
+    data: {
+      userId,
+      role,
+      expiresAt,
+    },
+  });
+
+  const sessionToken = await encrypt({ sessionId: sessionDb.id, expiresAt });
   const cookieStore = await cookies();
 
-  cookieStore.set("session", session, {
+  cookieStore.set("session", sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     expires: expiresAt,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
   });
 }
 
 export async function updateSession() {
   const cookieStore = await cookies();
-  const session = cookieStore.get("session")?.value;
-  if (!session) return null;
+  const sessionToken = cookieStore.get("session")?.value;
+  if (!sessionToken) return null;
 
-  const payload = await decrypt(session);
-  if (!payload) {
+  const payload = await decrypt(sessionToken);
+  if (!payload?.sessionId) {
     return null;
   }
 
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
   
+  // Update DB session expiry
+  try {
+    await prisma.session.update({
+      where: { id: payload.sessionId },
+      data: { expiresAt: expires },
+    });
+  } catch (e) {
+    return null;
+  }
+
   // Re-encrypt to update internal JWT expiration
-  const newSessionToken = await encrypt({ ...payload, expiresAt: expires });
+  const newSessionToken = await encrypt({ sessionId: payload.sessionId, expiresAt: expires });
 
   cookieStore.set("session", newSessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     expires: expires,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
   });
 }
 
 export async function deleteSession() {
   const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session")?.value;
+  if (sessionToken) {
+    const payload = await decrypt(sessionToken);
+    if (payload?.sessionId) {
+      try {
+        await prisma.session.delete({ where: { id: payload.sessionId } });
+      } catch (e) {
+        // Ignore if already deleted
+      }
+    }
+  }
   cookieStore.delete("session");
 }

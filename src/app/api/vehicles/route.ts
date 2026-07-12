@@ -3,15 +3,24 @@ import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { VehicleStatus } from "@prisma/client";
+import { VehicleCreateSchema, PaginationSchema } from "@/lib/definitions";
 
 /**
  * GET /api/vehicles
- * List all vehicles with optional filters: ?status=Available&type=Truck
+ * List all vehicles with optional filters: ?status=Available&type=Truck&page=1&limit=20
  */
 export const GET = withRole(["FleetManager", "Driver"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as VehicleStatus | null;
   const type = searchParams.get("type");
+
+  const pagination = PaginationSchema.safeParse({
+    page: searchParams.get("page") ?? 1,
+    limit: searchParams.get("limit") ?? 20,
+  });
+
+  const { page, limit } = pagination.success ? pagination.data : { page: 1, limit: 20 };
+  const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
   if (status && Object.values(VehicleStatus).includes(status)) {
@@ -21,12 +30,25 @@ export const GET = withRole(["FleetManager", "Driver"], withErrorHandler(async (
     where.type = { contains: type, mode: "insensitive" };
   }
 
-  const vehicles = await prisma.vehicle.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-  });
+  const [vehicles, total] = await Promise.all([
+    prisma.vehicle.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.vehicle.count({ where }),
+  ]);
 
-  return jsonSuccess(vehicles);
+  return jsonSuccess({
+    items: vehicles,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 }));
 
 /**
@@ -35,39 +57,22 @@ export const GET = withRole(["FleetManager", "Driver"], withErrorHandler(async (
  */
 export const POST = withRole(["FleetManager"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
-  const { registrationNumber, model, type, maxLoad, odometer, acquisitionCost } =
-    body;
 
-  // Validate required fields
-  if (!registrationNumber || !model || !type || maxLoad == null || isNaN(parseFloat(maxLoad))) {
-    return jsonError(
-      "Missing or invalid required fields: registrationNumber, model, type, maxLoad"
-    );
+  const validatedFields = VehicleCreateSchema.safeParse(body);
+  if (!validatedFields.success) {
+    return jsonError("Validation failed", 400, validatedFields.error.flatten().fieldErrors);
   }
 
-  if (maxLoad <= 0) {
-    return jsonError("maxLoad must be a positive number");
-  }
-
-  // Check for duplicate registration
-  const existing = await prisma.vehicle.findUnique({
-    where: { registrationNumber },
-  });
-  if (existing) {
-    return jsonError(
-      `Vehicle with registration number "${registrationNumber}" already exists`,
-      409
-    );
-  }
+  const { registrationNumber, model, type, maxLoad, odometer, acquisitionCost } = validatedFields.data;
 
   const vehicle = await prisma.vehicle.create({
     data: {
       registrationNumber,
       model,
       type,
-      maxLoad: parseFloat(maxLoad),
-      odometer: odometer ? parseFloat(odometer) : 0,
-      acquisitionCost: acquisitionCost ? parseFloat(acquisitionCost) : 0,
+      maxLoad,
+      odometer: odometer ?? 0,
+      acquisitionCost: acquisitionCost ?? 0,
       status: VehicleStatus.Available,
     },
   });

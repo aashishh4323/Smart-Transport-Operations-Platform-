@@ -65,9 +65,17 @@ export function withErrorHandler<T = any>(
       }
 
       console.error("[API Error]", error);
-      return jsonError(message, 500);
+      return jsonError("Internal server error", 500);
     }
   };
+}
+
+export function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-real-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "127.0.0.1"
+  );
 }
 
 export function parseValidFloat(val: any): number {
