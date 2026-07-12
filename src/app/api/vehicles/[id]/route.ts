@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, parseValidFloat } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { assertVehicleTransition } from "@/lib/services/vehicleStatusService";
 import { VehicleStatus } from "@prisma/client";
@@ -58,10 +58,10 @@ export const PUT = withRole(["FleetManager"], withErrorHandler(
       updateData.registrationNumber = registrationNumber;
     if (model !== undefined) updateData.model = model;
     if (type !== undefined) updateData.type = type;
-    if (maxLoad !== undefined) updateData.maxLoad = parseFloat(maxLoad);
-    if (odometer !== undefined) updateData.odometer = parseFloat(odometer);
+    if (maxLoad !== undefined) updateData.maxLoad = parseValidFloat(maxLoad);
+    if (odometer !== undefined) updateData.odometer = parseValidFloat(odometer);
     if (acquisitionCost !== undefined)
-      updateData.acquisitionCost = parseFloat(acquisitionCost);
+      updateData.acquisitionCost = parseValidFloat(acquisitionCost);
 
     const vehicle = await prisma.vehicle.update({
       where: { id },
@@ -81,25 +81,20 @@ export const DELETE = withRole(["FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
-    try {
-      const vehicle = await prisma.$transaction(async (tx) => {
-        const v = await tx.vehicle.findUniqueOrThrow({
-          where: { id },
-          select: { status: true },
-        });
-
-        assertVehicleTransition(v.status, VehicleStatus.Retired);
-
-        return tx.vehicle.update({
-          where: { id },
-          data: { status: VehicleStatus.Retired },
-        });
+    const vehicle = await prisma.$transaction(async (tx) => {
+      const v = await tx.vehicle.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
       });
-      return jsonSuccess(vehicle);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Cannot retire vehicle";
-      return jsonError(message, 422);
-    }
+
+      assertVehicleTransition(v.status, VehicleStatus.Retired);
+
+      return tx.vehicle.update({
+        where: { id },
+        data: { status: VehicleStatus.Retired },
+      });
+    });
+    
+    return jsonSuccess(vehicle);
   }
 ));

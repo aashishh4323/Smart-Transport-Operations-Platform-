@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, ApiError } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
 
@@ -14,7 +14,7 @@ import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
  *
  * Uses Prisma interactive transaction to ensure atomicity.
  */
-export const POST = withRole(["Dispatcher"], withErrorHandler(
+export const POST = withRole(["Dispatcher", "FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -27,7 +27,7 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
 
       // Only Draft trips can be dispatched
       if (trip.status !== TripStatus.Draft) {
-        throw new Error(
+        throw new ApiError(409,
           `Cannot dispatch trip: current status is ${trip.status} (expected Draft)`
         );
       }
@@ -64,7 +64,7 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(
       }
 
       if (errors.length > 0) {
-        throw new Error(errors.join("; "));
+        throw new ApiError(422, errors.join("; "));
       }
 
       // ── Atomic State Transition ──────────────────────────────

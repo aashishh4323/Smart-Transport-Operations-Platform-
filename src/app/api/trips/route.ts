@@ -2,34 +2,56 @@ import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
+import { TripDispatchSchema, PaginationSchema } from "@/lib/definitions";
 
 /**
  * GET /api/trips
- * List all trips with optional status filter: ?status=Dispatched
+ * List all trips with optional status filter: ?status=Dispatched&page=1&limit=20
  */
 export const GET = withRole(["Dispatcher", "FleetManager", "SafetyOfficer"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as TripStatus | null;
+
+  const pagination = PaginationSchema.safeParse({
+    page: searchParams.get("page") ?? 1,
+    limit: searchParams.get("limit") ?? 20,
+  });
+
+  const { page, limit } = pagination.success ? pagination.data : { page: 1, limit: 20 };
+  const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
   if (status && Object.values(TripStatus).includes(status)) {
     where.status = status;
   }
 
-  const trips = await prisma.trip.findMany({
-    where,
-    include: {
-      vehicle: {
-        select: { id: true, registrationNumber: true, model: true, maxLoad: true },
+  const [trips, total] = await Promise.all([
+    prisma.trip.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        vehicle: {
+          select: { id: true, registrationNumber: true, model: true, maxLoad: true },
+        },
+        driver: {
+          select: { id: true, name: true, licenseNumber: true, status: true },
+        },
       },
-      driver: {
-        select: { id: true, name: true, licenseNumber: true, status: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.trip.count({ where }),
+  ]);
 
-  return jsonSuccess(trips);
+  return jsonSuccess({
+    items: trips,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 }));
 
 /**
@@ -42,29 +64,15 @@ export const GET = withRole(["Dispatcher", "FleetManager", "SafetyOfficer"], wit
  *  3. driver.status === Available
  *  4. driver.licenseExpiry > today
  */
-export const POST = withRole(["Dispatcher"], withErrorHandler(async (req: Request) => {
+export const POST = withRole(["Dispatcher", "FleetManager"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
-  const { source, destination, cargoWeight, plannedDistance, vehicleId, driverId } =
-    body;
 
-  // Validate required fields
-  if (
-    !source ||
-    !destination ||
-    cargoWeight == null ||
-    plannedDistance == null ||
-    isNaN(parseFloat(cargoWeight)) ||
-    isNaN(parseFloat(plannedDistance)) ||
-    !vehicleId ||
-    !driverId
-  ) {
-    return jsonError(
-      "Missing or invalid required fields: source, destination, cargoWeight, plannedDistance, vehicleId, driverId"
-    );
+  const validatedFields = TripDispatchSchema.safeParse(body);
+  if (!validatedFields.success) {
+    return jsonError("Validation failed", 400, validatedFields.error.flatten().fieldErrors);
   }
 
-  const weight = parseFloat(cargoWeight);
-  const distance = parseFloat(plannedDistance);
+  const { source, destination, cargoWeight, plannedDistance, vehicleId, driverId } = validatedFields.data;
 
   // Fetch vehicle and driver for validation
   const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
@@ -81,9 +89,9 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(async (req: Reques
   const errors: string[] = [];
 
   // Rule 1: Cargo weight ≤ vehicle max load
-  if (weight > vehicle.maxLoad) {
+  if (cargoWeight > vehicle.maxLoad) {
     errors.push(
-      `Cargo weight (${weight} kg) exceeds vehicle capacity (${vehicle.maxLoad} kg) by ${(weight - vehicle.maxLoad).toFixed(1)} kg`
+      `Cargo weight (${cargoWeight} kg) exceeds vehicle capacity (${vehicle.maxLoad} kg) by ${(cargoWeight - vehicle.maxLoad).toFixed(1)} kg`
     );
   }
 
@@ -115,8 +123,8 @@ export const POST = withRole(["Dispatcher"], withErrorHandler(async (req: Reques
     data: {
       source,
       destination,
-      cargoWeight: weight,
-      plannedDistance: distance,
+      cargoWeight,
+      plannedDistance,
       status: TripStatus.Draft,
       vehicleId,
       driverId,

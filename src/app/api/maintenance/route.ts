@@ -2,16 +2,24 @@ import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { MaintenanceStatus, VehicleStatus } from "@prisma/client";
-
+import { MaintenanceLogCreateSchema, PaginationSchema } from "@/lib/definitions";
 
 /**
  * GET /api/maintenance
- * List maintenance logs with optional filters: ?vehicleId=xxx&status=Open
+ * List maintenance logs with optional filters: ?vehicleId=xxx&status=Open&page=1&limit=20
  */
 export const GET = withRole(["FleetManager", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const vehicleId = searchParams.get("vehicleId");
   const status = searchParams.get("status") as MaintenanceStatus | null;
+
+  const pagination = PaginationSchema.safeParse({
+    page: searchParams.get("page") ?? 1,
+    limit: searchParams.get("limit") ?? 20,
+  });
+
+  const { page, limit } = pagination.success ? pagination.data : { page: 1, limit: 20 };
+  const skip = (page - 1) * limit;
 
   const where: Record<string, unknown> = {};
   if (vehicleId) where.vehicleId = vehicleId;
@@ -19,17 +27,30 @@ export const GET = withRole(["FleetManager", "SafetyOfficer", "FinancialAnalyst"
     where.status = status;
   }
 
-  const logs = await prisma.maintenanceLog.findMany({
-    where,
-    include: {
-      vehicle: {
-        select: { id: true, registrationNumber: true, model: true },
+  const [logs, total] = await Promise.all([
+    prisma.maintenanceLog.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        vehicle: {
+          select: { id: true, registrationNumber: true, model: true },
+        },
       },
-    },
-    orderBy: { startDate: "desc" },
-  });
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.maintenanceLog.count({ where }),
+  ]);
 
-  return jsonSuccess(logs);
+  return jsonSuccess({
+    items: logs,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 }));
 
 /**
@@ -41,11 +62,13 @@ export const GET = withRole(["FleetManager", "SafetyOfficer", "FinancialAnalyst"
  */
 export const POST = withRole(["FleetManager", "SafetyOfficer"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
-  const { vehicleId, description, cost, startDate } = body;
-
-  if (!vehicleId || !description) {
-    return jsonError("Missing required fields: vehicleId, description");
+  
+  const validatedFields = MaintenanceLogCreateSchema.safeParse(body);
+  if (!validatedFields.success) {
+    return jsonError("Validation failed", 400, validatedFields.error.flatten().fieldErrors);
   }
+
+  const { vehicleId, description, cost, startDate } = validatedFields.data;
 
   // Verify vehicle exists
   const vehicle = await prisma.vehicle.findUnique({
@@ -77,8 +100,8 @@ export const POST = withRole(["FleetManager", "SafetyOfficer"], withErrorHandler
       data: {
         vehicleId,
         description,
-        cost: cost ? parseFloat(cost) : 0,
-        startDate: startDate ? new Date(startDate) : new Date(),
+        cost,
+        startDate,
         status: MaintenanceStatus.Open,
       },
       include: {

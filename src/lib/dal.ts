@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { decrypt } from "@/lib/session";
+import { decrypt } from "@/lib/jwt";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
@@ -13,13 +13,26 @@ import { prisma } from "@/lib/prisma";
 export const verifySession = cache(async () => {
   const cookieStore = await cookies();
   const cookie = cookieStore.get("session")?.value;
-  const session = await decrypt(cookie);
+  const payload = await decrypt(cookie);
 
-  if (!session?.userId) {
+  if (!payload?.sessionId) {
     return null;
   }
 
-  return { isAuth: true, userId: session.userId, role: session.role };
+  try {
+    const sessionDb = await prisma.session.findUnique({
+      where: { id: payload.sessionId },
+      include: { user: { select: { role: true, id: true } } },
+    });
+
+    if (!sessionDb || sessionDb.expiresAt < new Date()) {
+      return null;
+    }
+
+    return { isAuth: true, userId: sessionDb.user.id, role: sessionDb.user.role };
+  } catch (e) {
+    return null;
+  }
 });
 
 export const getUser = cache(async () => {

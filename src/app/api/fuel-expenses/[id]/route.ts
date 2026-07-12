@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, parseValidFloat, parseValidDate } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 import { ExpenseType } from "@prisma/client";
 
@@ -31,9 +31,9 @@ export const PUT = withRole(["FinancialAnalyst"], withErrorHandler(
     const { liters, cost, date, type } = body;
 
     const updateData: Record<string, unknown> = {};
-    if (liters !== undefined) updateData.liters = parseFloat(liters);
-    if (cost !== undefined) updateData.cost = parseFloat(cost);
-    if (date !== undefined) updateData.date = new Date(date);
+    if (liters !== undefined) updateData.liters = parseValidFloat(liters);
+    if (cost !== undefined) updateData.cost = parseValidFloat(cost);
+    if (date !== undefined) updateData.date = parseValidDate(date);
     if (type !== undefined) {
       if (!Object.values(ExpenseType).includes(type as ExpenseType)) {
         return jsonError(

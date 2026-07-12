@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { jsonSuccess, jsonError, withErrorHandler, parseValidFloat } from "@/lib/api-helpers";
 import { withRole } from "@/lib/rbac";
 
 /**
@@ -34,7 +34,7 @@ export const PUT = withRole(["FleetManager", "SafetyOfficer"], withErrorHandler(
 
     const updateData: Record<string, unknown> = {};
     if (description !== undefined) updateData.description = description;
-    if (cost !== undefined) updateData.cost = parseFloat(cost);
+    if (cost !== undefined) updateData.cost = parseValidFloat(cost);
 
     const log = await prisma.maintenanceLog.update({
       where: { id },
