@@ -1,1 +1,1 @@
-# Smart-Transport-Operations-Platformgit checkout Nitin
+# Smart-Transport-Operations-Platformgit 
