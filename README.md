@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Transport Operations Platform (TransitOps)
 
-## Getting Started
+TransitOps is a comprehensive web-based logistics and transport management platform designed to streamline fleet tracking, driver assignments, trip dispatching, maintenance scheduling, and operational expense logging. Built with strict business rules and Role-Based Access Control (RBAC), it ensures that your fleet operates safely, efficiently, and transparently.
 
-First, run the development server:
+## 🚀 Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Framework:** Next.js (App Router) + React 19
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4, modern glassmorphism UI
+- **Components:** Base UI, custom Shadcn UI-inspired components, Lucide Icons
+- **Database ORM:** Prisma
+- **Database:** PostgreSQL
+- **Data Validation:** Zod
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ Key Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Fleet Management**
+   - Register and track vehicles (vans, buses, trucks, coaches).
+   - Monitor vehicle status (Available, OnTrip, InShop, Retired), capacities, and odometers.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. **Driver Management**
+   - Track driver profiles, contact details, safety scores, and license expirations.
+   - Automatically prevent expired drivers from being assigned to trips.
 
-## Learn More
+3. **Trip Dispatch & Execution**
+   - Create Draft trips and transition them to Dispatched, Completed, or Cancelled.
+   - **Strict Business Logic Validation:** 
+     - Cargo weight cannot exceed vehicle capacity.
+     - Vehicle and driver must both be marked as "Available".
+     - Driver's license must not be expired prior to dispatch.
 
-To learn more about Next.js, take a look at the following resources:
+4. **Maintenance Logging**
+   - Log vehicles into the workshop (moves status to `InShop`).
+   - Track repair costs, descriptions, and close maintenance tickets to return vehicles to active service.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. **Operational Expenses**
+   - Log fuel consumption and costs directly against specific vehicles and trips.
+   - Track miscellaneous operational expenses (tolls, repairs, etc.).
+   - Calculate total operational cost overviews dynamically.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+6. **Role-Based Access Control (RBAC)**
+   - Secure API routes with explicit role requirements (e.g., `Admin`, `FleetManager`, `Dispatcher`, `SafetyOfficer`, `FinancialAnalyst`).
 
-## Deploy on Vercel
+## 🛠️ Getting Started
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL instance running locally or via a cloud provider.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Installation
+
+1. **Clone the repository and install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Environment Variables:**
+   Create a `.env` file in the root of your project and configure your database URL:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/transitops?schema=public"
+   ```
+
+3. **Database Setup:**
+   Run Prisma migrations to generate the schema and the client:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+4. **Seed the Database:**
+   Populate the database with initial Indian-context data (vehicles, drivers, default users):
+   ```bash
+   npm run prisma db seed
+   ```
+
+5. **Run the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## 🗄️ Database Schema Overview
+
+The Prisma schema comprises the following core models:
+- **User / Session:** For authentication and authorization.
+- **Vehicle:** Tracks hardware assets, odometer, and capacity.
+- **Driver:** Tracks personnel, licenses, and safety metrics.
+- **Trip:** Connects a Driver, a Vehicle, and a route (Source/Destination).
+- **MaintenanceLog:** Tracks workshop repairs and costs.
+- **FuelExpenseLog:** Tracks fuel purchases and toll costs.
+
+## 🔒 Permissions Map
+- **Fleet Manager:** Can add/edit vehicles, dispatch trips, open maintenance, and log fuel.
+- **Dispatcher:** Can manage draft trips, dispatch trips, assign drivers, and log fuel.
+- **Safety Officer:** Can suspend drivers and open vehicle maintenance.
+- **Financial Analyst:** Can view and log operational expenses (Fuel, Tolls, Other).
+
+---
+*Designed for efficient transit and logistics management.*

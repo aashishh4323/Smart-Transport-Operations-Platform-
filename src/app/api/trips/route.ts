@@ -64,7 +64,7 @@ export const GET = withRole(["Dispatcher", "FleetManager", "SafetyOfficer"], wit
  *  3. driver.status === Available
  *  4. driver.licenseExpiry > today
  */
-export const POST = withRole(["Dispatcher"], withErrorHandler(async (req: Request) => {
+export const POST = withRole(["Dispatcher", "FleetManager"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
 
   const validatedFields = TripDispatchSchema.safeParse(body);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { decrypt } from "@/lib/session";
+import { decrypt } from "@/lib/jwt";
 
 // Protect all /api routes except auth routes
 const protectedApiRegex = /^\/api\/(?!auth\/(signup|login)).*/;

@@ -57,7 +57,7 @@ export const GET = withRole(["FinancialAnalyst", "FleetManager"], withErrorHandl
  * POST /api/fuel-expenses
  * Log a fuel or other expense.
  */
-export const POST = withRole(["FinancialAnalyst"], withErrorHandler(async (req: Request) => {
+export const POST = withRole(["FinancialAnalyst", "FleetManager", "Dispatcher"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
   
   const validatedFields = FuelExpenseLogCreateSchema.safeParse(body);
