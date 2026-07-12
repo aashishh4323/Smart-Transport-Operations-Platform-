@@ -16,10 +16,9 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const { name, email, password } = validatedFields.data;
   
-  // Accept role from input, fallback to FleetManager
-  // In a real app, role assignment on signup is heavily restricted.
-  const roleInput = body.role as Role | undefined;
-  const role = roleInput && Object.values(Role).includes(roleInput) ? roleInput : Role.FleetManager;
+  // Hardcode Driver role for all open signups.
+  // Real apps might use invitations, but for a demo we default to least privilege.
+  const role = Role.Driver;
 
   // 2. Check if user exists
   const existingUser = await prisma.user.findUnique({

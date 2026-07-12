@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { VehicleStatus, DriverStatus, TripStatus } from "@prisma/client";
 
 /**
@@ -11,7 +12,7 @@ import { VehicleStatus, DriverStatus, TripStatus } from "@prisma/client";
  *  - Active trips (Draft + Dispatched), completed trips
  *  - Fleet utilization % = OnTrip / (Total Active) * 100
  */
-export const GET = withErrorHandler(async () => {
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async () => {
   // Vehicle counts by status
   const vehicleCounts = await prisma.vehicle.groupBy({
     by: ["status"],
@@ -98,4 +99,4 @@ export const GET = withErrorHandler(async () => {
     },
     fleetUtilization,
   });
-});
+}));

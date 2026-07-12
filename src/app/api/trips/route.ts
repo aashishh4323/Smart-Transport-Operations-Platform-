@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
 
 /**
  * GET /api/trips
  * List all trips with optional status filter: ?status=Dispatched
  */
-export const GET = withErrorHandler(async (req: Request) => {
+export const GET = withRole(["Dispatcher", "FleetManager", "SafetyOfficer"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as TripStatus | null;
 
@@ -29,7 +30,7 @@ export const GET = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(trips);
-});
+}));
 
 /**
  * POST /api/trips
@@ -41,7 +42,7 @@ export const GET = withErrorHandler(async (req: Request) => {
  *  3. driver.status === Available
  *  4. driver.licenseExpiry > today
  */
-export const POST = withErrorHandler(async (req: Request) => {
+export const POST = withRole(["Dispatcher"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
   const { source, destination, cargoWeight, plannedDistance, vehicleId, driverId } =
     body;
@@ -52,11 +53,13 @@ export const POST = withErrorHandler(async (req: Request) => {
     !destination ||
     cargoWeight == null ||
     plannedDistance == null ||
+    isNaN(parseFloat(cargoWeight)) ||
+    isNaN(parseFloat(plannedDistance)) ||
     !vehicleId ||
     !driverId
   ) {
     return jsonError(
-      "Missing required fields: source, destination, cargoWeight, plannedDistance, vehicleId, driverId"
+      "Missing or invalid required fields: source, destination, cargoWeight, plannedDistance, vehicleId, driverId"
     );
   }
 
@@ -129,4 +132,4 @@ export const POST = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(trip, 201);
-});
+}));

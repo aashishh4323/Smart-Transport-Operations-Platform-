@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { MaintenanceStatus, VehicleStatus } from "@prisma/client";
-import { setVehicleInShop } from "@/lib/services/vehicleStatusService";
+
 
 /**
  * GET /api/maintenance
  * List maintenance logs with optional filters: ?vehicleId=xxx&status=Open
  */
-export const GET = withErrorHandler(async (req: Request) => {
+export const GET = withRole(["FleetManager", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const vehicleId = searchParams.get("vehicleId");
   const status = searchParams.get("status") as MaintenanceStatus | null;
@@ -29,7 +30,7 @@ export const GET = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(logs);
-});
+}));
 
 /**
  * POST /api/maintenance
@@ -38,7 +39,7 @@ export const GET = withErrorHandler(async (req: Request) => {
  *
  * Cannot open maintenance on a vehicle that is OnTrip.
  */
-export const POST = withErrorHandler(async (req: Request) => {
+export const POST = withRole(["FleetManager", "SafetyOfficer"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
   const { vehicleId, description, cost, startDate } = body;
 
@@ -99,4 +100,4 @@ export const POST = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(result, 201);
-});
+}));

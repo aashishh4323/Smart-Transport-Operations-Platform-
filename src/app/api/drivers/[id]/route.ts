@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
-import { setDriverSuspended } from "@/lib/services/driverStatusService";
+import { withRole } from "@/lib/rbac";
+import { assertDriverTransition } from "@/lib/services/driverStatusService";
+import { DriverStatus } from "@prisma/client";
 
 /**
  * GET /api/drivers/:id
  * Get driver details including trip count.
  */
-export const GET = withErrorHandler(
+export const GET = withRole(["Dispatcher", "SafetyOfficer", "FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -21,13 +23,13 @@ export const GET = withErrorHandler(
 
     return jsonSuccess(driver);
   }
-);
+));
 
 /**
  * PUT /api/drivers/:id
  * Update driver details.
  */
-export const PUT = withErrorHandler(
+export const PUT = withRole(["Dispatcher", "SafetyOfficer"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
     const body = await req.json();
@@ -71,19 +73,31 @@ export const PUT = withErrorHandler(
 
     return jsonSuccess(driver);
   }
-);
+));
 
 /**
  * DELETE /api/drivers/:id
  * Soft-delete: sets driver status to Suspended.
  * Cannot suspend a driver that is currently OnTrip.
  */
-export const DELETE = withErrorHandler(
+export const DELETE = withRole(["Dispatcher", "SafetyOfficer"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
     try {
-      const driver = await setDriverSuspended(id);
+      const driver = await prisma.$transaction(async (tx) => {
+        const d = await tx.driver.findUniqueOrThrow({
+          where: { id },
+          select: { status: true },
+        });
+
+        assertDriverTransition(d.status, DriverStatus.Suspended);
+
+        return tx.driver.update({
+          where: { id },
+          data: { status: DriverStatus.Suspended },
+        });
+      });
       return jsonSuccess(driver);
     } catch (error: unknown) {
       const message =
@@ -91,4 +105,4 @@ export const DELETE = withErrorHandler(
       return jsonError(message, 422);
     }
   }
-);
+));

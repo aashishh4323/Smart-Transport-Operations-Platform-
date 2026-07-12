@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { ExpenseType } from "@prisma/client";
 
 /**
  * GET /api/fuel-expenses
  * List fuel/expense logs with optional filters: ?vehicleId=xxx&type=Fuel
  */
-export const GET = withErrorHandler(async (req: Request) => {
+export const GET = withRole(["FinancialAnalyst", "FleetManager"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const vehicleId = searchParams.get("vehicleId");
   const type = searchParams.get("type") as ExpenseType | null;
@@ -28,13 +29,13 @@ export const GET = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(logs);
-});
+}));
 
 /**
  * POST /api/fuel-expenses
  * Log a fuel or other expense.
  */
-export const POST = withErrorHandler(async (req: Request) => {
+export const POST = withRole(["FinancialAnalyst"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
   const { vehicleId, liters, cost, date, type } = body;
 
@@ -74,4 +75,4 @@ export const POST = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(log, 201);
-});
+}));

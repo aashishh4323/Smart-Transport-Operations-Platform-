@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 
 /**
  * GET /api/trips/:id
  * Get trip details with vehicle and driver info.
  */
-export const GET = withErrorHandler(
+export const GET = withRole(["Dispatcher", "FleetManager", "SafetyOfficer"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -19,4 +20,4 @@ export const GET = withErrorHandler(
 
     return jsonSuccess(trip);
   }
-);
+));

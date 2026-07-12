@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { DriverStatus } from "@prisma/client";
 
 /**
  * GET /api/drivers
  * List all drivers with optional status filter: ?status=Available
  */
-export const GET = withErrorHandler(async (req: Request) => {
+export const GET = withRole(["Dispatcher", "SafetyOfficer", "FleetManager"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as DriverStatus | null;
 
@@ -21,13 +22,13 @@ export const GET = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(drivers);
-});
+}));
 
 /**
  * POST /api/drivers
  * Create a new driver.
  */
-export const POST = withErrorHandler(async (req: Request) => {
+export const POST = withRole(["Dispatcher", "SafetyOfficer"], withErrorHandler(async (req: Request) => {
   const body = await req.json();
   const {
     name,
@@ -69,4 +70,4 @@ export const POST = withErrorHandler(async (req: Request) => {
   });
 
   return jsonSuccess(driver, 201);
-});
+}));

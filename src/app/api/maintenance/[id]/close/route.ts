@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { MaintenanceStatus, VehicleStatus } from "@prisma/client";
 
 /**
@@ -13,7 +14,7 @@ import { MaintenanceStatus, VehicleStatus } from "@prisma/client";
  * Only checks if there are other open maintenance records for the
  * same vehicle — vehicle stays InShop if other records are still open.
  */
-export const POST = withErrorHandler(
+export const POST = withRole(["FleetManager", "SafetyOfficer"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 
@@ -63,4 +64,4 @@ export const POST = withErrorHandler(
 
     return jsonSuccess(result);
   }
-);
+));

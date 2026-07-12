@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, withErrorHandler } from "@/lib/api-helpers";
+import { withRole } from "@/lib/rbac";
 import { TripStatus } from "@prisma/client";
 
 /**
@@ -10,7 +11,7 @@ import { TripStatus } from "@prisma/client";
  *
  * Distance is derived from (finalOdometer - previous odometer) or plannedDistance as fallback.
  */
-export const GET = withErrorHandler(async () => {
+export const GET = withRole(["FleetManager", "Dispatcher", "SafetyOfficer", "FinancialAnalyst"], withErrorHandler(async () => {
   // Get all completed trips with vehicle info
   const completedTrips = await prisma.trip.findMany({
     where: {
@@ -69,4 +70,4 @@ export const GET = withErrorHandler(async () => {
   efficiencyData.sort((a, b) => b.fuelEfficiency - a.fuelEfficiency);
 
   return jsonSuccess(efficiencyData);
-});
+}));

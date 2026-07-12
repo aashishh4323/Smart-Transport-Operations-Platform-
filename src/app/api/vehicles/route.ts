@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jsonSuccess, jsonError, withErrorHandler } from "@/lib/api-helpers";
-import { withAuth, withRole } from "@/lib/rbac";
+import { withRole } from "@/lib/rbac";
 import { VehicleStatus } from "@prisma/client";
 
 /**
  * GET /api/vehicles
  * List all vehicles with optional filters: ?status=Available&type=Truck
  */
-export const GET = withAuth(withErrorHandler(async (req: Request) => {
+export const GET = withRole(["FleetManager", "Driver"], withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as VehicleStatus | null;
   const type = searchParams.get("type");
@@ -39,9 +39,9 @@ export const POST = withRole(["FleetManager"], withErrorHandler(async (req: Requ
     body;
 
   // Validate required fields
-  if (!registrationNumber || !model || !type || maxLoad == null) {
+  if (!registrationNumber || !model || !type || maxLoad == null || isNaN(parseFloat(maxLoad))) {
     return jsonError(
-      "Missing required fields: registrationNumber, model, type, maxLoad"
+      "Missing or invalid required fields: registrationNumber, model, type, maxLoad"
     );
   }
 
