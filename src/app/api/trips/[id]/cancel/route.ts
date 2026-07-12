@@ -13,7 +13,7 @@ import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
  *
  * Can only cancel from Dispatched status.
  */
-export const POST = withRole(["Dispatcher"], withErrorHandler(
+export const POST = withRole(["Dispatcher", "FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
 

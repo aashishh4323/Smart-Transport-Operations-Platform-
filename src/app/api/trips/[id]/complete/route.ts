@@ -15,7 +15,7 @@ import { TripStatus, VehicleStatus, DriverStatus } from "@prisma/client";
  *
  * Request body: { finalOdometer: number, fuelConsumed: number }
  */
-export const POST = withRole(["Dispatcher"], withErrorHandler(
+export const POST = withRole(["Dispatcher", "FleetManager"], withErrorHandler(
   async (req: Request, { params }: { params: Promise<Record<string, string>> }) => {
     const { id } = await params;
     const body = await req.json();
